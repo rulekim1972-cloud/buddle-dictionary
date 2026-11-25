@@ -270,37 +270,38 @@ function castOn(leaf, under, over) {
   });
 }
 function canFlip(dir) { return dir > 0 ? S.p + span() < S.N : S.p > 0; }
-function beginFlip(dir) {
+function beginFlip(dir, v) {
   const g = S.geom, two = S.mode === 'two', p = S.p;
+  if (v == null) v = p + dir * span();
   let leaf, sign, from, to;
   if (two && dir > 0) {
-    leaf = makeLeaf(g.pw, 'left', pageHTML(p + 1, 'R'), pageHTML(p + 2, 'L'));
-    fillPage($('#pgR'), p + 3, 'R'); sign = -1; from = 0; to = 180; castOn(leaf, $('#pgR'), $('#pgL'));
+    leaf = makeLeaf(g.pw, 'left', pageHTML(p + 1, 'R'), pageHTML(v, 'L'));
+    fillPage($('#pgR'), v + 1, 'R'); sign = -1; from = 0; to = 180; castOn(leaf, $('#pgR'), $('#pgL'));
   } else if (two && dir < 0) {
-    leaf = makeLeaf(0, 'right', pageHTML(p, 'L'), pageHTML(p - 1, 'R'));
-    fillPage($('#pgL'), p - 2, 'L'); sign = 1; from = 0; to = 180; castOn(leaf, $('#pgL'), $('#pgR'));
+    leaf = makeLeaf(0, 'right', pageHTML(p, 'L'), pageHTML(v + 1, 'R'));
+    fillPage($('#pgL'), v, 'L'); sign = 1; from = 0; to = 180; castOn(leaf, $('#pgL'), $('#pgR'));
   } else if (dir > 0) {
     leaf = makeLeaf(0, 'left', pageHTML(p, 'one'), '', true);
     leaf.querySelector('.front').style.background = 'var(--paper)';
-    fillPage($('#pgR'), p + 1, 'one'); sign = -1; from = 0; to = 180; castOn(leaf, $('#pgR'), null);
+    fillPage($('#pgR'), v, 'one'); sign = -1; from = 0; to = 180; castOn(leaf, $('#pgR'), null);
   } else {
-    leaf = makeLeaf(0, 'left', pageHTML(p - 1, 'one'), '', true);
+    leaf = makeLeaf(0, 'left', pageHTML(v, 'one'), '', true);
     leaf.querySelector('.front').style.background = 'var(--paper)';
     sign = -1; from = 180; to = 0;
   }
   setAngle(leaf, from, sign);
-  return { leaf, sign, from, to, dir };
+  return { leaf, sign, from, to, dir, v };
 }
-function finishFlip(f, commit, cb) {
+function finishFlip(f, commit, cb, slow) {
   const target = commit ? f.to : f.from, cur = parseFloat((f.leaf.style.transform.match(/-?[\d.]+/) || [0])[0]) * f.sign;
-  const dur = Math.max(140, Math.abs(target - cur) / 180 * 420);
+  const dur = Math.max(140, Math.abs(target - cur) / 180 * (slow || 420));
   f.leaf.style.transition = `transform ${dur}ms cubic-bezier(.3,.6,.4,1)`;
   f.leaf.querySelectorAll('.shade').forEach(x => x.style.transition = `opacity ${dur}ms`);
   requestAnimationFrame(() => setAngle(f.leaf, target, f.sign));
   if (commit) sFlip();
   setTimeout(() => {
     f.leaf.remove(); document.querySelectorAll('.cast').forEach(x => x.remove());
-    if (commit) S.p += f.dir * span();
+    if (commit) S.p = f.v;
     drawView(); S.busy = false; cb && cb();
     store.set('pos', S.pages[S.p][0]);
   }, dur + 20);
@@ -317,7 +318,20 @@ function gotoPage(target, hl) {
   const diff = (v - S.p) / span();
   if (diff === 0) { if (hl != null) highlight(hl); return; }
   if (Math.abs(diff) === 1) { flipOnce(Math.sign(diff), () => hl != null && highlight(hl)); return; }
-  flurry(Math.sign(diff), Math.min(7, Math.ceil(Math.log2(Math.abs(diff) + 1)) + 2), () => setView(v, hl));
+  thickFlip(Math.sign(diff), v, Math.abs(diff), () => hl != null && highlight(hl));
+}
+function thickFlip(dir, v, n, cb) {
+  if (S.busy) return; S.busy = true; hideHint();
+  const f = beginFlip(dir, v);
+  // 넘기는 장 수만큼 종이 뭉치가 두꺼워 보이게
+  const th = Math.max(3, Math.min(16, Math.round(Math.log2(n + 1) * 2.6)));
+  const side = (S.mode === 'two' && dir < 0) ? -1 : 1, sh = [];
+  for (let k = 1; k <= th; k++) sh.push(`${side * k}px ${k * 0.4}px 0 ${k % 2 ? '#e6d9bd' : '#cdbb95'}`);
+  f.leaf.style.boxShadow = sh.join(',');
+  f.leaf.classList.add('thick');
+  const dur = 520 + Math.min(380, n * 4);
+  sFlip(1.2); setTimeout(() => sFlip(0.7), 90); setTimeout(() => sFlip(0.5), 170);
+  requestAnimationFrame(() => finishFlip(f, true, cb, dur));
 }
 function flurry(dir, n, cb) {
   if (S.busy) return; S.busy = true;
@@ -361,7 +375,16 @@ function onDown(e) {
   ac();
   const t = e.target, book = $('#book'), r = book.getBoundingClientRect();
   const tab = t.closest('.tab'), edge = t.closest('.edge'), corner = t.closest('.corner');
-  if (corner) { P = null; hideHint(); flipOnce(+corner.dataset.dir); return; }
+  if (corner) {
+    P = null; hideHint(); const dir = +corner.dataset.dir; flipOnce(dir);
+    let speed = 360, alive = true;
+    const stop = () => { alive = false; clearTimeout(S.holdT); $('#peek').style.display = 'none'; window.removeEventListener('pointerup', stop); window.removeEventListener('pointercancel', stop); };
+    window.addEventListener('pointerup', stop); window.addEventListener('pointercancel', stop);
+    const r = corner.getBoundingClientRect();
+    const step = () => { if (!alive) return; if (!S.busy && canFlip(dir)) { flipOnce(dir); showPeek(S.p + (dir > 0 ? span() : -1), r.left + r.width / 2, r.top); speed = Math.max(150, speed * 0.85); } S.holdT = setTimeout(step, speed); };
+    S.holdT = setTimeout(step, 520);
+    return;
+  }
   P = { x: e.clientX, y: e.clientY, t0: performance.now(), id: e.pointerId, kind: tab ? 'tab' : edge ? 'edge' : 'page', tab, edge, moved: false, flip: null, target: t };
   if (edge) {
     const side = edge.classList.contains('L') ? 'L' : 'R', er = edge.getBoundingClientRect();
