@@ -180,6 +180,8 @@ function layout() {
     <div class="edge L" style="left:${T}px;width:${E}px"><div class="lines"></div><div class="grip">옆면</div></div>
     <div class="edge R" style="left:${T + E + pw * np}px;width:${E}px"><div class="lines"></div><div class="grip">옆면</div></div>
     <div class="pages" style="left:${T + E}px;width:${pw * np}px">${S.mode === 'two' ? '<div class="page L" id="pgL" style="width:' + pw + 'px"></div><div class="page R" id="pgR" style="width:' + pw + 'px"></div>' : '<div class="page one" id="pgR" style="width:' + pw + 'px"></div>'}</div>
+    <div class="corner L" data-dir="-1" style="left:${T + E}px;top:${ph - 64}px">‹</div>
+    <div class="corner R" data-dir="1" style="left:${T + E + pw * np - 64}px;top:${ph - 64}px">›</div>
     ${TABS.map((t, k) => `<div class="tab" data-tab="${k}" style="background:${TAB_COLORS[k]};height:${Math.floor(ph / 14) - 3}px;top:${k * ph / 14 + 1}px">${t}</div>`).join('')}`;
   document.documentElement.style.setProperty('--fs', S.fs + 'px');
 }
@@ -273,7 +275,9 @@ function finishFlip(f, commit, cb) {
     store.set('pos', S.pages[S.p][0]);
   }, dur + 20);
 }
+function hideHint() { const h = $('#hint1'); if (h) { h.remove(); store.set('hinted', 1); } }
 function flipOnce(dir, cb) {
+  hideHint();
   if (S.busy || !canFlip(dir)) { cb && cb(); return; }
   S.busy = true; const f = beginFlip(dir); requestAnimationFrame(() => finishFlip(f, true, cb));
 }
@@ -321,7 +325,8 @@ function onDown(e) {
   if (S.busy || !S.D) return;
   ac();
   const t = e.target, book = $('#book'), r = book.getBoundingClientRect();
-  const tab = t.closest('.tab'), edge = t.closest('.edge');
+  const tab = t.closest('.tab'), edge = t.closest('.edge'), corner = t.closest('.corner');
+  if (corner) { P = null; hideHint(); flipOnce(+corner.dataset.dir); return; }
   P = { x: e.clientX, y: e.clientY, t0: performance.now(), id: e.pointerId, kind: tab ? 'tab' : edge ? 'edge' : 'page', tab, edge, moved: false, flip: null, target: t };
   if (edge) {
     const side = edge.classList.contains('L') ? 'L' : 'R', er = edge.getBoundingClientRect();
@@ -338,7 +343,7 @@ function onMove(e) {
   if (!P.flip && P.moved && Math.abs(dx) > Math.abs(dy) * 1.1 && Math.abs(dx) > 14) {
     const dir = dx < 0 ? 1 : -1;
     if (!canFlip(dir)) { P.kind = 'none'; toast(dir > 0 ? '마지막 쪽이에요' : '첫 쪽이에요'); return; }
-    S.busy = true; P.flip = beginFlip(dir); P.dir = dir;
+    S.busy = true; hideHint(); P.flip = beginFlip(dir); P.dir = dir;
   }
   if (P.flip) {
     const prog = Math.max(0, Math.min(1, (-dx * P.dir) / (S.geom.pw * 1.25)));
@@ -357,7 +362,9 @@ function onUp(e) {
   }
   if (p.kind === 'page' && !p.moved) {
     const ent = p.target.closest && p.target.closest('.ent');
-    if (ent) onEntry(+ent.dataset.i, ent);
+    if (ent) { onEntry(+ent.dataset.i, ent); return; }
+    const pr = $('.pages').getBoundingClientRect(), fx = (e.clientX - pr.left) / pr.width;
+    if (fx > 0.5) flipOnce(1); else if (S.p > 0) flipOnce(-1);
   }
 }
 
@@ -709,6 +716,7 @@ function openBook() {
   const keep = store.get('pos', 0);
   relayout(Math.min(keep, S.D.length - 1));
   sFlip();
+  if (!store.get('hinted', 0)) { const h = document.createElement('div'); h.id = 'hint1'; h.innerHTML = '👉 종이를 손가락으로 <b>옆으로 밀면</b> 넘어가요<br><span>아래 구석의 ‹ › 를 눌러도 되고, 색인과 옆면을 잡으면 많이 넘어가요</span>'; h.onclick = hideHint; document.body.appendChild(h); }
   const m = location.hash.match(/play=(\w+)&(w|i)=([^&]*)(?:&t=([^&]*))?/);
   if (m) {
     const kind = m[1], title = m[4] ? decodeURIComponent(m[4]) : '';
