@@ -1,5 +1,5 @@
 'use strict';
-/* 버들 국어사전 — 3학년 2반 임혜란샘 */
+/* 버들 국어사전 — 3학년 */
 
 const $ = (s, el = document) => el.querySelector(s);
 const store = {
@@ -92,7 +92,7 @@ async function load() {
 }
 
 /* ---------- 쪽 나누기 ---------- */
-const MAXS = 3;
+const MAXS = 8;
 function entryHTML(i) {
   const r = S.D[i], [w, hn, pos, g, senses] = r, pic = r[5];
   let h = `<div class="ent${S.stars.has(i) ? ' star' : ''}" data-i="${i}"><span class="hw">${esc(w)}${hn ? `<sup>${hn}</sup>` : ''}</span>`;
@@ -158,7 +158,8 @@ function pageHTML(p, side) {
   const [a, b] = S.pages[p], first = S.D[a][0], last = S.D[b - 1][0], c = cho1(first);
   let h = `<div class="page ${side}" style="height:100%"><div class="phead"><span>${esc(first)}</span><span class="g">${c}</span><span>${esc(last)}</span></div><div class="pin"><div class="pbody">`;
   for (let i = a; i < b; i++) h += entryHTML(i);
-  h += `</div></div><div class="pfoot">${p + 1}</div></div>`;
+  const k = TABS.indexOf(c), sh = 100 / 14;
+  h += `</div></div><div class="pfoot">${p + 1}</div><div class="thumb ${side === 'L' ? 'tl' : 'tr'}" style="top:${k * sh}%;height:${sh}%;background:${TAB_COLORS[k]}">${c}</div></div>`;
   S.cache.set(key, h); return h;
 }
 
@@ -173,15 +174,16 @@ function layout() {
   const maxW = W - pad * 2 - 2 * T - 2 * E - 12;
   if (pw * np > maxW) { pw = maxW / np; ph = Math.min(H - pad * 2 - 14, pw / (S.mode === 'two' ? 0.62 : 0.6)); }
   pw = Math.floor(pw); ph = Math.floor(ph);
-  S.geom = { pw, ph, E, T, np, bw: T * 2 + E * 2 + pw * np, x0: T + E };
+  S.geom = { pw, ph, E, T, np, bw: T * 2 + E * 2 + pw * np, x0: T + E, ET: E * 2 };
   const book = $('#book');
   book.style.width = S.geom.bw + 'px'; book.style.height = ph + 'px';
   book.innerHTML = `<div class="cover-back" style="left:${T - 8}px;right:${T - 8}px"></div>
-    <div class="edge L" style="left:${T}px;width:${E}px"><div class="lines"></div><div class="grip">옆면</div></div>
-    <div class="edge R" style="left:${T + E + pw * np}px;width:${E}px"><div class="lines"></div><div class="grip">옆면</div></div>
-    <div class="pages" style="left:${T + E}px;width:${pw * np}px">${S.mode === 'two' ? '<div class="page L" id="pgL" style="width:' + pw + 'px"></div><div class="page R" id="pgR" style="width:' + pw + 'px"></div>' : '<div class="page one" id="pgR" style="width:' + pw + 'px"></div>'}</div>
-    <div class="corner L" data-dir="-1" style="left:${T + E}px;top:${ph - 64}px">‹</div>
-    <div class="corner R" data-dir="1" style="left:${T + E + pw * np - 64}px;top:${ph - 64}px">›</div>
+    <div class="block" style="left:${T}px;width:${E * 2 + pw * np}px"></div>
+    <div class="edge L" style="left:${T}px;width:${E}px"><div class="lines"></div><div class="bands"></div></div>
+    <div class="edge R" style="left:${T + E + pw * np}px;width:${E}px"><div class="lines"></div><div class="bands"></div></div>
+    <div class="pages" style="left:${T + E}px;width:${pw * np}px">${S.mode === 'two' ? '<div class="page L" id="pgL" style="width:' + pw + 'px"></div><div class="page R" id="pgR" style="width:' + pw + 'px"></div>' : '<div class="page one" id="pgR" style="width:' + pw + 'px"></div>'}
+    <div class="corner L" data-dir="-1" style="left:0;top:${ph - 64}px">‹</div>
+    <div class="corner R" data-dir="1" style="right:0;top:${ph - 64}px">›</div></div>
     ${TABS.map((t, k) => `<div class="tab" data-tab="${k}" style="background:${TAB_COLORS[k]};height:${Math.floor(ph / 14) - 3}px;top:${k * ph / 14 + 1}px">${t}</div>`).join('')}`;
   document.documentElement.style.setProperty('--fs', S.fs + 'px');
 }
@@ -205,8 +207,29 @@ function drawView() {
   placeTabs();
 }
 function span() { return S.mode === 'two' ? 2 : 1; }
+function edgeW() {
+  const g = S.geom, f = S.N > 1 ? S.p / Math.max(1, S.N - span()) : 0, mn = 10;
+  const wL = Math.round(mn + (g.ET - 2 * mn) * Math.min(1, f)); return [wL, g.ET - wL];
+}
+function placeEdges() {
+  const g = S.geom, [wL, wR] = edgeW(), PW = g.pw * g.np;
+  const eL = $('.edge.L'), eR = $('.edge.R'), pg = $('.pages');
+  eL.style.width = wL + 'px'; pg.style.left = (g.T + wL) + 'px';
+  eR.style.left = (g.T + wL + PW) + 'px'; eR.style.width = wR + 'px';
+  const sh = g.ph / 14, a0 = S.p, a1 = S.p + span();
+  let hl = '', hr = '';
+  TABS.forEach((t, k) => {
+    const st = S.secStart[k]; if (st < 0) return;
+    let en = S.N; for (let j = k + 1; j < 14; j++) if (S.secStart[j] >= 0) { en = S.secStart[j]; break; }
+    const top = k * sh + 2, h = sh - 4, c = TAB_COLORS[k];
+    if (st < a0 && a0 > 0) { const x0 = st / a0 * wL, x1 = Math.min(en, a0) / a0 * wL; hl += `<i style="left:${x0}px;width:${Math.max(2, x1 - x0)}px;top:${top}px;height:${h}px;background:${c}"></i>`; }
+    if (en > a1 && S.N > a1) { const span2 = S.N - a1, x0 = Math.max(0, st - a1) / span2 * wR, x1 = (en - a1) / span2 * wR; hr += `<i style="left:${x0}px;width:${Math.max(2, x1 - x0)}px;top:${top}px;height:${h}px;background:${c}"></i>`; }
+  });
+  $('.bands', eL).innerHTML = hl; $('.bands', eR).innerHTML = hr;
+}
 function placeTabs() {
-  const g = S.geom, rightEdgeX = g.x0 + g.pw * g.np + g.E;
+  placeEdges();
+  const g = S.geom, rightEdgeX = g.T + g.ET + g.pw * g.np;
   document.querySelectorAll('.tab').forEach(el => {
     const k = +el.dataset.tab, sp = S.secStart[k];
     const left = sp >= 0 && sp <= S.p + span() - 1 && !(sp > S.p);
@@ -238,6 +261,13 @@ function setAngle(leaf, a, sign) {
   leaf.style.transform = `rotateY(${sign * a}deg)`;
   const s = Math.sin(a * Math.PI / 180) * 0.9;
   leaf.querySelectorAll('.shade').forEach(x => x.style.opacity = s);
+  if (leaf._cast) leaf._cast.forEach(([el, side]) => { const v = side === 'under' ? (a < 90 ? s * 0.7 : 0) : (a > 90 ? s * 0.7 : 0); el.style.opacity = v; });
+}
+function castOn(leaf, under, over) {
+  leaf._cast = [];
+  [[under, 'under'], [over, 'over']].forEach(([pg, side]) => {
+    if (!pg) return; const d = document.createElement('div'); d.className = 'cast ' + (pg.classList.contains('L') ? 'cl' : 'cr'); pg.appendChild(d); leaf._cast.push([d, side]);
+  });
 }
 function canFlip(dir) { return dir > 0 ? S.p + span() < S.N : S.p > 0; }
 function beginFlip(dir) {
@@ -245,14 +275,14 @@ function beginFlip(dir) {
   let leaf, sign, from, to;
   if (two && dir > 0) {
     leaf = makeLeaf(g.pw, 'left', pageHTML(p + 1, 'R'), pageHTML(p + 2, 'L'));
-    fillPage($('#pgR'), p + 3, 'R'); sign = -1; from = 0; to = 180;
+    fillPage($('#pgR'), p + 3, 'R'); sign = -1; from = 0; to = 180; castOn(leaf, $('#pgR'), $('#pgL'));
   } else if (two && dir < 0) {
     leaf = makeLeaf(0, 'right', pageHTML(p, 'L'), pageHTML(p - 1, 'R'));
-    fillPage($('#pgL'), p - 2, 'L'); sign = 1; from = 0; to = 180;
+    fillPage($('#pgL'), p - 2, 'L'); sign = 1; from = 0; to = 180; castOn(leaf, $('#pgL'), $('#pgR'));
   } else if (dir > 0) {
     leaf = makeLeaf(0, 'left', pageHTML(p, 'one'), '', true);
     leaf.querySelector('.front').style.background = 'var(--paper)';
-    fillPage($('#pgR'), p + 1, 'one'); sign = -1; from = 0; to = 180;
+    fillPage($('#pgR'), p + 1, 'one'); sign = -1; from = 0; to = 180; castOn(leaf, $('#pgR'), null);
   } else {
     leaf = makeLeaf(0, 'left', pageHTML(p - 1, 'one'), '', true);
     leaf.querySelector('.front').style.background = 'var(--paper)';
@@ -269,7 +299,7 @@ function finishFlip(f, commit, cb) {
   requestAnimationFrame(() => setAngle(f.leaf, target, f.sign));
   if (commit) sFlip();
   setTimeout(() => {
-    f.leaf.remove();
+    f.leaf.remove(); document.querySelectorAll('.cast').forEach(x => x.remove());
     if (commit) S.p += f.dir * span();
     drawView(); S.busy = false; cb && cb();
     store.set('pos', S.pages[S.p][0]);
@@ -310,15 +340,20 @@ function gotoEntry(i, hl = true) { gotoPage(S.pageOf[i], hl ? i : null); }
 
 /* ---------- 손가락 다루기 ---------- */
 let P = null;
-function edgeTarget(side, x) {
-  const g = S.geom, f = Math.max(0, Math.min(1, x / g.E));
-  if (side === 'L') return Math.round(f * Math.max(0, S.p - 1));
-  const a = S.p + span(), b = S.N - 1; return Math.round(a + f * (b - a));
+function edgeTarget(side, x, w) {
+  const f = Math.max(0, Math.min(1, x / Math.max(1, w)));
+  let t;
+  if (side === 'L') t = Math.round(f * Math.max(0, S.p - 1));
+  else { const a = S.p + span(), b = S.N - 1; t = Math.round(a + f * (b - a)); }
+  // 색인 시작 쪽 가까이면 그 쪽에 붙는다
+  const tol = Math.max(2, Math.round(S.N * 0.006));
+  for (const st of S.secStart) if (st >= 0 && Math.abs(st - t) <= tol) { S.snapped = true; return st; }
+  S.snapped = false; return t;
 }
 function showPeek(p, cx, cy) {
   const pk = $('#peek'); if (p < 0 || p >= S.N) { pk.style.display = 'none'; return; }
   const w = S.D[S.pages[p][0]][0];
-  pk.innerHTML = `<span class="c">${cho1(w)}</span>${esc(w)} ~ ${esc(S.D[S.pages[p][1] - 1][0])}<small>${p + 1}쪽</small>`;
+  pk.innerHTML = `<span class="c">${cho1(w)}</span>${esc(w)} ~ ${esc(S.D[S.pages[p][1] - 1][0])}<small>${p + 1}쪽${S.snapped ? ' · 색인' : ''}</small>`;
   pk.style.display = 'block'; pk.style.left = cx + 'px'; pk.style.top = cy + 'px';
 }
 function onDown(e) {
@@ -330,7 +365,7 @@ function onDown(e) {
   P = { x: e.clientX, y: e.clientY, t0: performance.now(), id: e.pointerId, kind: tab ? 'tab' : edge ? 'edge' : 'page', tab, edge, moved: false, flip: null, target: t };
   if (edge) {
     const side = edge.classList.contains('L') ? 'L' : 'R', er = edge.getBoundingClientRect();
-    P.side = side; P.er = er; const tp = edgeTarget(side, e.clientX - er.left); P.tp = tp; showPeek(tp, e.clientX, er.top + 10);
+    P.side = side; P.er = er; const tp = edgeTarget(side, e.clientX - er.left, er.width); P.tp = tp; showPeek(tp, e.clientX, er.top + 10);
   }
   book.setPointerCapture(e.pointerId); void r;
 }
@@ -338,7 +373,7 @@ function onMove(e) {
   if (!P || e.pointerId !== P.id) return;
   const dx = e.clientX - P.x, dy = e.clientY - P.y;
   if (Math.hypot(dx, dy) > 10) P.moved = true;
-  if (P.kind === 'edge') { P.tp = edgeTarget(P.side, e.clientX - P.er.left); showPeek(P.tp, Math.max(P.er.left - 60, Math.min(P.er.right + 60, e.clientX)), P.er.top + 10); return; }
+  if (P.kind === 'edge') { P.tp = edgeTarget(P.side, e.clientX - P.er.left, P.er.width); showPeek(P.tp, Math.max(P.er.left - 60, Math.min(P.er.right + 60, e.clientX)), P.er.top + 10); return; }
   if (P.kind !== 'page') return;
   if (!P.flip && P.moved && Math.abs(dx) > Math.abs(dy) * 1.1 && Math.abs(dx) > 14) {
     const dir = dx < 0 ? 1 : -1;
@@ -374,19 +409,30 @@ function openCard(html, wide) {
   $('#dim').classList.add('show'); c.scrollTop = 0;
 }
 function closeCard() { $('#dim').classList.remove('show'); if ('speechSynthesis' in window) speechSynthesis.cancel(); }
-function noteHTML(i) {
+const NOTES = new Map();
+async function loadNote(i) {
+  const k = Math.floor(i / 500);
+  if (!NOTES.has(k)) { try { NOTES.set(k, await fetch(`n${String(k).padStart(2, '0')}.json`).then(r => r.json())); } catch (e) { NOTES.set(k, {}); } }
+  return NOTES.get(k)[i] || {};
+}
+function noteHTML(i, n = {}) {
   const r = S.D[i], [w, hn, pos, g, senses] = r, pic = r[5];
   const rels = []; senses.forEach(s => s[2].forEach(x => { if (!rels.some(y => y[1] === x[1])) rels.push(x); }));
   return `<div class="note-top"><div class="note-pic">${pic || `<span style="font-size:46px;font-weight:700;color:var(--accent)">${esc(w[0])}</span>`}</div>
     <div><div class="note-w">${esc(w)}${hn ? `<sup>${hn}</sup>` : ''}</div>
-    <div class="tagrow">${pos ? `<span class="tag">${POSNAME[pos] || pos}</span>` : ''}<span class="tag g">${GRADE[g]}</span><span class="tag">${S.pageOf[i] + 1}쪽</span><span class="tag">첫소리 ${choStr(w)}</span></div></div></div>
+    <div class="tagrow">${pos ? `<span class="tag">${POSNAME[pos] || pos}</span>` : ''}<span class="tag g">${GRADE[g]}</span><span class="tag">${S.pageOf[i] + 1}쪽</span><span class="tag">첫소리 ${choStr(w)}</span>${n.k ? `<span class="tag">${esc(n.k)}</span>` : ''}</div>
+    ${n.p || n.o ? `<div class="small" style="margin-top:6px">${n.p ? `발음 [${esc(n.p.join(', '))}]` : ''}${n.p && n.o ? ' · ' : ''}${n.o ? `한자 ${esc(n.o)}` : ''}</div>` : ''}</div></div>
     <div class="btnrow"><button class="btn pri" data-act="say" data-i="${i}">🔊 읽어 주기</button><button class="btn gold" data-act="star" data-i="${i}">${S.stars.has(i) ? '★ 낱말장에서 빼기' : '☆ 낱말장에 담기'}</button></div>
-    ${senses.map((s, k) => `<div class="sense">${senses.length > 1 ? `<span class="n">${CIRCLE[k] || k + 1}</span>` : ''}${esc(s[0])}${s[1] ? `<div class="ex">${esc(s[1])}</div>` : ''}</div>`).join('')}
+    ${senses.map((s, k) => `<div class="sense">${senses.length > 1 ? `<span class="n">${CIRCLE[k] || k + 1}</span>` : ''}${esc(s[0])}${s[1] ? `<div class="ex">${esc(s[1])}</div>` : ''}${n.s && n.s[k] && n.s[k] !== s[1] ? `<div class="ex">${esc(n.s[k])}</div>` : ''}</div>`).join('')}
+    ${n.f ? `<h3>이렇게 바뀌어 쓰여요</h3><div class="words">${n.f.map(x => `<span class="wchip">${esc(x)}</span>`).join('')}</div>` : ''}
+    ${n.ph ? `<h3>관용구 · 속담</h3>${n.ph.map(x => `<div class="sense"><span class="tag">${esc(x[0])}</span> <b>${esc(x[1])}</b><div style="margin-top:4px;color:#5a5047;font-size:16px">${esc(x[2])}</div></div>`).join('')}` : ''}
+    ${n.d ? `<h3>이 낱말에서 생긴 말</h3><div class="words">${n.d.map(x => S.idx.has(x) ? `<button class="wchip" data-act="jump" data-w="${esc(x)}">${esc(x)}</button>` : `<span class="wchip" style="opacity:.75">${esc(x)}</span>`).join('')}</div>` : ''}
     ${rels.length ? `<h3>비슷한말 · 반대말 <span class="small">누르면 그 낱말로 넘어가요</span></h3>${rels.map(x => `<button class="rel ${x[0] === '반' ? 'anti' : ''}" data-act="jump" data-w="${esc(x[1])}">${x[0] === '반' ? '↔ 반대말' : '≈ 비슷한말'} ${esc(x[1])}</button>`).join('')}` : ''}`;
 }
 function onEntry(i, el) {
   if (S.game && S.game.onBook) { gameTap(i, el); return; }
   openCard(noteHTML(i));
+  loadNote(i).then(n => { if ($('#dim').classList.contains('show') && $(`#card [data-act="say"][data-i="${i}"]`)) { const st = $('#card').scrollTop; openCard(noteHTML(i, n)); $('#card').scrollTop = st; } });
 }
 
 /* ---------- 놀이 ---------- */
@@ -640,7 +686,7 @@ function mkGo() {
 }
 function aboutCard() {
   openCard(`<h2>이 사전에 대하여</h2>
-  <p>버들 국어사전은 3학년 2반 친구들이 종이 사전처럼 넘기며 낱말을 찾는 연습을 하도록 만든 디지털 사전이에요. 학교 가기 전부터 4학년까지 배우는 낱말 ${S.D.length.toLocaleString()}개가 가나다순으로 ${S.N.toLocaleString()}쪽에 실려 있어요. 3·4학년 낱말에는 표시가 있어요.</p>
+  <p>버들 국어사전은 3학년 친구들이 종이 사전처럼 넘기며 낱말을 찾는 연습을 하도록 만든 디지털 사전이에요. 학교 가기 전부터 4학년까지 배우는 낱말 ${S.D.length.toLocaleString()}개가 가나다순으로 ${S.N.toLocaleString()}쪽에 실려 있어요. 3·4학년 낱말에는 표시가 있어요.</p>
   <h3>낱말 자료 출처</h3>
   <p class="small">· 국립국어원 「한국어기초사전」 — 뜻풀이, 예문, 품사, 비슷한말·반대말. CC BY-SA 2.0 KR<br>
   · 국립국어원 「국어 기초 어휘 선정 및 어휘 등급화 목록」(2024) — 낱말 선별과 학년 등급. 공공누리 제1유형<br>
@@ -662,7 +708,7 @@ document.addEventListener('click', e => {
   const acts = {
     close: closeCard, games: gameMenu, dogam: dogamCard, settings: settingsCard, about: aboutCard, names: namesCard, maker: makerCard, find: findCard,
     say: () => { const r = S.D[+b.dataset.i]; speak(r[0] + '. ' + r[4].map((s, k) => (r[4].length > 1 ? (k + 1) + '번 뜻. ' : '') + s[0] + (s[1] ? ' 예를 들면, ' + s[1] : '')).join(' ')); },
-    star: () => { const i = +b.dataset.i; S.stars.has(i) ? S.stars.delete(i) : S.stars.add(i); store.set('stars', [...S.stars]); S.cache.clear(); drawView(); openCard(noteHTML(i)); },
+    star: () => { const i = +b.dataset.i; S.stars.has(i) ? S.stars.delete(i) : S.stars.add(i); store.set('stars', [...S.stars]); S.cache.clear(); drawView(); loadNote(i).then(n => openCard(noteHTML(i, n))); },
     jump: () => { const c = S.idx.get(b.dataset.w); if (c) { closeCard(); setTimeout(() => gotoEntry(c[0]), 120); } },
     jumpi: () => { closeCard(); setTimeout(() => gotoEntry(+b.dataset.i), 120); },
     gpick: () => setMenu(b.dataset.k),
@@ -736,4 +782,5 @@ book.addEventListener('pointerup', onUp);
 book.addEventListener('pointercancel', e => { if (P && P.flip) finishFlip(P.flip, false); P = null; $('#peek').style.display = 'none'; });
 let rt = 0;
 addEventListener('resize', () => { if (!S.D || $('#cover').classList.contains('hide') === false) return; clearTimeout(rt); rt = setTimeout(() => { if (S.busy) return; relayout(S.pages[S.p][0]); }, 250); });
+if ('serviceWorker' in navigator && /github\.io$/.test(location.hostname)) { try { navigator.serviceWorker.register('sw.js').catch(() => {}); } catch (e) {} }
 load().catch(err => { $('#loadMsg').textContent = '사전을 불러오지 못했어요. 새로고침해 주세요.'; console.error(err); });

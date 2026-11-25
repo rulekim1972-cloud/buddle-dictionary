@@ -42,10 +42,10 @@ button{font-family:inherit;cursor:pointer}
 #book{position:relative;touch-action:none}
 .cover-back{position:absolute;inset:-10px -8px -12px -8px;background:linear-gradient(#24685a,#174b40);border-radius:10px;box-shadow:0 18px 40px rgba(0,0,0,.55)}
 .pages{position:absolute;top:0;bottom:0;display:flex;perspective:2600px}
-.page{position:relative;background:var(--paper);overflow:hidden;height:100%}
+.page{position:relative;background:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='3' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 .45  0 0 0 0 .36  0 0 0 0 .22  0 0 0 .06 0'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>"),var(--paper);overflow:hidden;height:100%}
 .page::after{content:"";position:absolute;inset:0;pointer-events:none}
-.page.L::after{background:linear-gradient(to left,rgba(80,55,30,.22),rgba(80,55,30,0) 9%)}
-.page.R::after{background:linear-gradient(to right,rgba(80,55,30,.22),rgba(80,55,30,0) 9%)}
+.page.L::after{background:linear-gradient(to left,rgba(70,45,20,.34),rgba(70,45,20,.08) 4%,rgba(70,45,20,0) 12%),linear-gradient(to right,rgba(70,45,20,.08),rgba(70,45,20,0) 3%)}
+.page.R::after{background:linear-gradient(to right,rgba(70,45,20,.34),rgba(70,45,20,.08) 4%,rgba(70,45,20,0) 12%),linear-gradient(to left,rgba(70,45,20,.08),rgba(70,45,20,0) 3%)}
 .page.one::after{background:linear-gradient(to right,rgba(80,55,30,.16),rgba(80,55,30,0) 5%)}
 .pin{position:absolute;inset:0;padding:calc(var(--fs)*2.6) calc(var(--fs)*1.5) calc(var(--fs)*2.2) calc(var(--fs)*1.6)}
 .page.L .pin{padding-left:calc(var(--fs)*1.3);padding-right:calc(var(--fs)*1.9)}
@@ -72,6 +72,18 @@ button{font-family:inherit;cursor:pointer}
 .pbody.tight{font-size:calc(var(--fs)*.93);line-height:1.48}
 .pbody.tight.tighter{font-size:calc(var(--fs)*.86);line-height:1.42}
 
+/* 책 덩어리·옆면 색 띠·쪽 색인 */
+.block{position:absolute;top:6px;bottom:-7px;border-radius:4px;background:repeating-linear-gradient(0deg,#efe5cf 0 1px,#d6c6a3 1px 2px);box-shadow:0 10px 18px rgba(0,0,0,.35)}
+.edge .bands{position:absolute;inset:0;pointer-events:none}
+.edge .bands i{position:absolute;opacity:.62;border-radius:1px}
+.thumb{position:absolute;width:15px;display:flex;align-items:center;justify-content:center;color:#fff;font-size:10px;font-weight:700;pointer-events:none;opacity:.9}
+.thumb.tr{right:0;border-radius:4px 0 0 4px}
+.thumb.tl{left:0;border-radius:0 4px 4px 0}
+.cast{position:absolute;inset:0;pointer-events:none;opacity:0;z-index:4}
+.cast.cr{background:linear-gradient(to right,rgba(40,25,10,.45),rgba(40,25,10,0) 55%)}
+.cast.cl{background:linear-gradient(to left,rgba(40,25,10,.45),rgba(40,25,10,0) 55%)}
+.leaf .face::before{content:"";position:absolute;inset:0;background:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='3' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 .45  0 0 0 0 .36  0 0 0 0 .22  0 0 0 .06 0'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>");pointer-events:none}
+.phead{right:calc(var(--fs)*1.7)!important;left:calc(var(--fs)*1.7)!important}
 /* 옆면 */
 .edge{position:absolute;top:4px;bottom:4px;cursor:ew-resize}
 .edge.L{border-radius:6px 0 0 6px}
@@ -207,10 +219,10 @@ textarea,input[type=text]{width:100%;font-family:inherit;font-size:16px;border:2
     <div class="frame"></div>
     <div class="sm">초등학생을 위한</div>
     <h1>버들<br>국어사전</h1>
-    <div class="sub">넘기고 · 찾고 · 읽어 주는 우리 반 사전</div>
+    <div class="sub">넘기고 · 찾고 · 읽어 주는 사전</div>
     <button class="open" id="openBtn" disabled>사전 펼치기</button>
     <div class="load" id="loadMsg">사전을 준비하고 있어요…</div>
-    <div class="who">3학년 2반 임혜란샘</div>
+    <div class="who">3학년</div>
   </div>
 </div>
 
@@ -228,6 +240,6 @@ textarea,input[type=text]{width:100%;font-family:inherit;font-size:16px;border:2
 <div class="dim" id="dim"><div class="card" id="card"></div></div>
 
 <script src="qrcode.js"></script>
-<script src="app.js?v=3"></script>
+<script src="app.js?v=4"></script>
 </body>
 </html>
